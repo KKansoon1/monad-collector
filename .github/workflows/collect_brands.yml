@@ -27,7 +27,7 @@ jobs:
         env:
           SHEET_WEBHOOK_URL: ${{ secrets.SHEET_WEBHOOK_URL }}
           WEBHOOK_SECRET: monad_auto_2026
-        run: python github_collect.py
+        run: python -u github_collect.py
 
       - name: 수집 이력 저장 (중복 방지)
         run: |
