@@ -716,7 +716,10 @@
     "site:smartstore.naver.com 매트리스 이메일",
     "site:wadiz.kr/web/campaign/detail 매트리스 이메일",
     "\"매트리스\" \"대표자 이메일:\" \"통신판매업신고번호\"",
-    "샴푸 공식몰 고객센터 이메일"
+    "샴푸 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 샴푸 이메일",
+    "site:wadiz.kr/web/campaign/detail 샴푸 이메일",
+    "\"샴푸\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
-  "last_newswire_no": 1042030
+  "last_newswire_no": 1041850
 }
