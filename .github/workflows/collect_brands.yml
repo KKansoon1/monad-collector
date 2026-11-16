@@ -1,8 +1,6 @@
 name: MonadLive 24h Brand Collector
 
 on:
-  schedule:
-    - cron: '7,37 * * * *'   # 30분마다 클라우드에서 자동 실행
   workflow_dispatch:         # 깃허브 웹에서 수동 즉시 실행 버튼 제공
 
 permissions:
