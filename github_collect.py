@@ -1,7 +1,8 @@
 """
 GitHub Actions 클라우드 전용 고속 브랜드 수집기 (24시간 무인 실행 / PC 불필요)
 - 매 실행 시 최대 20분 동안 고속 멀티스레드 수집 후, 결과를 구글 시트(Apps Script 웹훅)로 전송하고 종료
-- collected_history.txt / collector_state.json에 진행 상태를 저장해 다음 실행에서 중복 없이 이어서 수집
+- 시트 전송이 실제로 성공한 건만 collected_history.txt에 기록하여 중복 방지 및 유실 방지
+- 비관련 기업/SaaS/소프트웨어/관공서/뉴스 노이즈 필터링 강화
 """
 
 import base64
@@ -12,15 +13,15 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urljoin, urlparse, parse_qs, unquote, quote_plus
+from urllib.parse import urljoin, urlparse, parse_qs, quote_plus
 import requests
 from bs4 import BeautifulSoup
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-SHEET_WEBHOOK_URL = os.environ.get("SHEET_WEBHOOK_URL", "").strip()
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "monad_auto_2026").strip()
+SHEET_WEBHOOK_URL = os.environ.get("SHEET_WEBHOOK_URL", "").strip().strip('"').strip("'")
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "monad_auto_2026").strip().strip('"').strip("'")
 
 MAX_RUN_SECONDS = 1200      # 1회 실행 최대 20분 (상태 저장 후 깔끔히 종료)
 BATCH_PUSH_SIZE = 10        # 10건 모일 때마다 즉시 구글 시트 전송
@@ -64,8 +65,9 @@ PRIORITY_PREFIXES = (
 )
 
 EXCLUDE_PREFIXES = (
-    "noreply", "no-reply", "privacy", "security", "webmaster",
-    "postmaster", "recruit", "hr", "ir", "abuse", "tax", "legal", "copyright"
+    "noreply", "no-reply", "privacy", "security", "webmaster", "terms",
+    "postmaster", "recruit", "hr", "ir", "abuse", "tax", "legal", "copyright",
+    "oceanir", "staff", "feedback"
 )
 
 PLATFORM_STORE_DOMAINS = (
@@ -81,7 +83,12 @@ SKIP_EMAIL_DOMAINS = (
     "example.com", "domain.com", "sentry.io", "w3.org", "schema.org",
     "imweb.me", "cafe24.com", "sixshop.com", "makeshop.co.kr", "shopify.com",
     "newswire.co.kr", "mediabee.com", "navercorp.com", "kakaocorp.com",
-    "chosun.com", "joongang.co.kr", "donga.com", "mk.co.kr", "hankyung.com", "yna.co.kr"
+    "chosun.com", "joongang.co.kr", "donga.com", "mk.co.kr", "hankyung.com", "yna.co.kr",
+    "adobe.com", "hancom.com", "estsoft.com", "airbnb.com", "hanwha.com",
+    "op.gg", "zigbang.com", "kyobobook.com", "novelpia.com", "casenote.kr",
+    "visitseoul.net", "burberry.com", "voyagerx.com", "kidsnote.com", "ubion.co.kr",
+    "icbanq.com", "panocean.com", "unidocs.co.kr", "markinfo.co.kr", "smbs.co.kr",
+    "lbox.kr", "ezenac.co.kr", "filejo.com", "google.com", "microsoft.com"
 )
 
 SKIP_DOMAINS = (
@@ -95,7 +102,10 @@ SKIP_DOMAINS = (
     "mk.co.kr", "hankyung.com", "etnews.com", "zdnet.co.kr", "yna.co.kr",
     "duckduckgo.com", "google.com", "bing.com", "microsoft.com",
     "daangn.com", "bunjang.co.kr", "joongna.com", "toss.im", "baemin.com",
-    "yogiyo.co.kr", "aliexpress.com", "temu.com", "amazon.com"
+    "yogiyo.co.kr", "aliexpress.com", "temu.com", "amazon.com",
+    "airbnb.co.kr", "airbnb.com", "adobe.com", "hancom.com", "estsoft.co.kr",
+    "op.gg", "zigbang.com", "kyobobook.co.kr", "casenote.kr", "visitseoul.net",
+    "novelpia.com", "voyagerx.com", "kidsnote.com", "icbanq.com", "panocean.com"
 )
 
 EXCLUDE_ORG_KEYWORDS = (
@@ -105,16 +115,28 @@ EXCLUDE_ORG_KEYWORDS = (
     "대학교", "학교", "학원", "어학원", "유치원", "공사", "공단", "시청", "구청",
     "법무법인", "변호사", "세무사", "회계사", "노무사", "공인중개사", "부동산",
     "분양", "인테리어시공", "결혼정보", "장례", "대출", "보험", "물류대행",
-    "택배", "운송", "컨설팅", "SaaS", "ERP", "클라우드", "보안솔루션",
-    "뉴스", "매거진", "커뮤니티", "찾기", "추천", "순위", "랭킹", "모음", "비교", "리스트", "포털"
+    "택배", "운송", "해운", "조선", "컨설팅", "SaaS", "ERP", "클라우드", "보안솔루션",
+    "뉴스", "매거진", "커뮤니티", "찾기", "추천", "순위", "랭킹", "모음", "비교", "리스트", "포털",
+    "소프트웨어", "유틸리티", "웹하드", "게임", "웹소설", "특허", "상표등록", "지식재산",
+    "대법원", "판례", "법률", "외국환", "관광", "여행", "숙박", "에어비앤비",
+    "카드", "은행", "증권", "전자부품", "반도체", "방열판", "냉각팬", "에듀", "캠퍼스",
+    "어도비", "한글과컴퓨터", "한컴", "알캡처", "노벨피아", "버버리", "한화오션"
 )
 
+BAD_BRAND_EXACT = {
+    "고객센터", "회사개요", "사업자등록번호", "개인정보", "이용약관", "공지사항",
+    "자주묻는질문", "로그인", "회원가입", "장바구니", "주문조회", "마이페이지",
+    "상표등록", "요금제", "작용을", "귀사의", "누구나", "단독", "실적", "조건",
+    "협력사", "고양시", "경복궁", "러시아", "대법원", "하나카드", "축구", "컬렉션",
+    "키프리스란", "개인정보위가", "신세계인터내셔날은", "일리있는 선택"
+}
+
+# 실제 쇼핑몰/소비재 브랜드 여부를 가르는 강한 커머스 시그널 (최소 2개 이상 필요)
 COMMERCE_SIGNAL_KEYWORDS = (
-    "쇼핑몰", "공식몰", "자사몰", "스토어", "장바구니", "구매", "판매", "배송",
-    "할인", "특가", "이벤트", "프로모션", "공동구매", "공구", "라이브", "입점",
-    "신제품", "런칭", "론칭", "출시", "팝업", "박람회", "페어", "전시", "체험단",
-    "상품", "제품", "제조", "공장", "통신판매업", "사업자등록번호", "고객센터", "주문", "결제",
-    "원", "무료배송", "리뷰", "후기", "선물세트", "패키지", "브랜드"
+    "쇼핑몰", "공식몰", "자사몰", "스마트스토어", "브랜드스토어", "와디즈",
+    "장바구니", "구매하기", "주문하기", "결제", "무료배송", "배송비", "택배",
+    "통신판매업", "통신판매업신고", "공동구매", "공구", "라이브커머스",
+    "선물세트", "입점문의", "제휴문의", "할인가", "정가", "적립금", "회원혜택"
 )
 
 
@@ -158,7 +180,7 @@ def is_valid_email(email: str) -> bool:
     local, _, domain = email.partition("@")
     if not local or not domain or "." not in domain:
         return False
-    if domain.endswith(".or.kr") or domain.endswith(".go.kr") or domain.endswith(".ac.kr"):
+    if domain.endswith(".or.kr") or domain.endswith(".go.kr") or domain.endswith(".ac.kr") or domain.endswith(".edu") or domain.endswith(".gov"):
         return False
     if any(d in domain for d in SKIP_EMAIL_DOMAINS):
         return False
@@ -216,7 +238,12 @@ def clean_korean_brand_name(raw_title: str) -> str:
 
     if not re.search(r"[가-힣]", part) or len(part) < 2 or len(part) > 12:
         return ""
+    if part in BAD_BRAND_EXACT:
+        return ""
     if any(k in part for k in EXCLUDE_ORG_KEYWORDS):
+        return ""
+    # 조사로 끝나는 비정상 문장 조각 제외
+    if re.search(r"(은|는|이|가|을|를|의|에서|으로)$", part) and len(part) <= 4:
         return ""
     return part
 
@@ -236,14 +263,14 @@ def extract_company_from_footer(text: str) -> str:
     return ""
 
 
-def is_aptner_target_page(raw_title: str, page_text: str) -> bool:
+def is_aptner_target_page(raw_title: str, page_text: str, min_signals: int = 2) -> bool:
     head_text = f"{raw_title} {page_text[:1500]}"
     if any(bad in raw_title for bad in EXCLUDE_ORG_KEYWORDS):
         return False
     if sum(1 for bad in EXCLUDE_ORG_KEYWORDS if bad in head_text) >= 2:
         return False
-    sample = page_text[:5000]
-    return sum(1 for kw in COMMERCE_SIGNAL_KEYWORDS if kw in sample) >= 1
+    sample = f"{raw_title} {page_text[:5000]}"
+    return sum(1 for kw in COMMERCE_SIGNAL_KEYWORDS if kw in sample) >= min_signals
 
 
 def decode_bing_url(url: str) -> str:
@@ -277,9 +304,12 @@ def load_history() -> tuple[set[str], set[str], set[str]]:
     return seen_brands, seen_emails, seen_domains
 
 
-def append_history(brand: str, email: str, domain: str):
+def append_history_batch(items: list[tuple[str, str, str]]):
+    if not items:
+        return
     with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{brand}\t{email}\t{domain}\n")
+        for brand, email, domain in items:
+            f.write(f"{brand}\t{email}\t{domain}\n")
 
 
 def load_state() -> dict:
@@ -297,22 +327,41 @@ def save_state(state: dict):
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
-def push_to_google_sheet(rows: list[tuple[str, str]]):
-    if not rows:
-        return
-    if not SHEET_WEBHOOK_URL or "script.google.com/macros/s/" not in SHEET_WEBHOOK_URL:
-        print("  [경고] SHEET_WEBHOOK_URL 시크릿이 설정되지 않았습니다.")
-        return
+def validate_webhook_url() -> bool:
+    if not SHEET_WEBHOOK_URL:
+        print("  [오류] SHEET_WEBHOOK_URL 시크릿이 비어 있습니다.")
+        return False
+    if not SHEET_WEBHOOK_URL.startswith("https://"):
+        print("  [오류] SHEET_WEBHOOK_URL이 'https://'로 시작하지 않습니다. GitHub Secrets에 따옴표 없이 전체 웹 앱 URL(https://script.google.com/macros/s/.../exec)을 입력했는지 확인하세요.")
+        return False
+    if "script.google.com/macros/s/" not in SHEET_WEBHOOK_URL:
+        print("  [오류] SHEET_WEBHOOK_URL 형식이 Apps Script 웹 앱 URL이 아닙니다.")
+        return False
+    return True
+
+
+def push_to_google_sheet(batch: list[tuple[str, str, str]]) -> bool:
+    if not batch:
+        return True
+    if not validate_webhook_url():
+        return False
+    rows = [[b, em] for b, em, _ in batch]
     try:
         resp = requests.post(
             SHEET_WEBHOOK_URL,
-            json={"secret": WEBHOOK_SECRET, "rows": [list(r) for r in rows]},
-            timeout=20,
+            json={"secret": WEBHOOK_SECRET, "rows": rows},
+            timeout=25,
             allow_redirects=True,
         )
-        print(f"  [구글 시트 적재] {len(rows)}건 전송 -> {resp.text[:80]}")
+        text_preview = resp.text[:120].replace("\n", " ")
+        print(f"  [구글 시트 적재] {len(rows)}건 전송 (HTTP {resp.status_code}) -> {text_preview}")
+        if resp.status_code == 200 and ('"ok":true' in resp.text or '"ok": true' in resp.text):
+            append_history_batch(batch)
+            return True
+        return False
     except Exception as e:
         print(f"  [시트 전송 오류] {e}")
+        return False
 
 
 def fetch_soup(url: str, timeout: int = 7) -> BeautifulSoup | None:
@@ -333,7 +382,7 @@ def extract_brand_and_email(url: str, fallback_brand: str = "") -> tuple[str, st
         return "", ""
     raw_title = soup.title.get_text(strip=True) if soup.title else ""
     page_text = soup.get_text(" ", strip=True)
-    if not is_aptner_target_page(raw_title, page_text):
+    if not is_aptner_target_page(raw_title, page_text, min_signals=2):
         return "", ""
     brand = clean_korean_brand_name(raw_title) or extract_company_from_footer(page_text) or fallback_brand
     if not brand:
@@ -378,7 +427,7 @@ def process_press_url(press_url: str) -> tuple[str, str, str]:
     raw_title = p_soup.title.get_text(strip=True) if p_soup.title else ""
     body_area = p_soup.select_one(".release-story, .news_body, #content, article") or p_soup
     body_text = body_area.get_text(" ", strip=True)
-    if any(bad in raw_title for bad in EXCLUDE_ORG_WORDS):
+    if any(bad in raw_title for bad in EXCLUDE_ORG_KEYWORDS):
         return "", "", ""
     if sum(1 for kw in COMMERCE_SIGNAL_KEYWORDS if kw in f"{raw_title} {body_text[:2500]}") < 2:
         return "", "", ""
@@ -470,14 +519,19 @@ def build_queries() -> list[str]:
 
 def main():
     start_ts = time.time()
+    if not validate_webhook_url():
+        raise SystemExit(1)
+
     seen_brands, seen_emails, seen_domains = load_history()
     state = load_state()
     lock = threading.Lock()
     pending_push = []
     added_count = 0
+    pushed_count = 0
 
     def record_item(brand: str, email: str, entity_key: str):
-        nonlocal pending_push, added_count
+        nonlocal pending_push, added_count, pushed_count
+        batch_to_send = []
         with lock:
             if not brand or not email or not entity_key:
                 return
@@ -487,13 +541,15 @@ def main():
             seen_domains.add(entity_key)
             seen_brands.add(brand)
             seen_emails.add(email)
-            pending_push.append((brand, email))
-            append_history(brand, email, entity_key)
+            pending_push.append((brand, email, entity_key))
             added_count += 1
-            print(f"  + [이번 실행 {added_count}건] {brand} | {email}")
+            print(f"  + [수집 {added_count}건] {brand} | {email}")
             if len(pending_push) >= BATCH_PUSH_SIZE:
-                push_to_google_sheet(pending_push)
+                batch_to_send = pending_push
                 pending_push = []
+        if batch_to_send:
+            if push_to_google_sheet(batch_to_send):
+                pushed_count += len(batch_to_send)
 
     # 1. 뉴스와이어 최신 번호 역순 스캔 (회차당 180건 스캔)
     start_no = int(state.get("last_newswire_no", 1047250))
@@ -535,7 +591,7 @@ def main():
                 entity_key = get_entity_key(page_url)
                 domain_only = urlparse(page_url).netloc.lower().replace("www.", "")
 
-                if snip_emails and snip_brand and is_aptner_target_page(tit, snippet):
+                if snip_emails and snip_brand and is_aptner_target_page(tit, snippet, min_signals=2):
                     best_em = sorted(set(snip_emails), key=classify_email_priority)[0]
                     ekey = entity_key if (domain_only and not is_skip_domain(domain_only)) else f"{snip_brand}_{best_em}"
                     record_item(snip_brand, best_em, ekey)
@@ -558,8 +614,9 @@ def main():
         save_state(state)
 
     if pending_push:
-        push_to_google_sheet(pending_push)
-    print(f"=== 이번 클라우드 수집 완료: 총 {added_count}건 시트 적재 ===")
+        if push_to_google_sheet(pending_push):
+            pushed_count += len(pending_push)
+    print(f"=== 이번 클라우드 수집 완료: 발굴 {added_count}건 / 시트 적재 성공 {pushed_count}건 ===")
 
 
 if __name__ == "__main__":
