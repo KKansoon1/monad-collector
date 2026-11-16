@@ -715,7 +715,11 @@
     "전복 공식몰 고객센터 이메일",
     "site:smartstore.naver.com 전복 이메일",
     "site:wadiz.kr/web/campaign/detail 전복 이메일",
-    "\"전복\" \"대표자 이메일:\" \"통신판매업신고번호\""
+    "\"전복\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "냄비 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 냄비 이메일",
+    "site:wadiz.kr/web/campaign/detail 냄비 이메일",
+    "\"냄비\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
-  "last_newswire_no": 1042750
+  "last_newswire_no": 1042570
 }
