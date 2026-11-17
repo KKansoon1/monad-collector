@@ -705,7 +705,21 @@
     "site:wadiz.kr/web/campaign/detail 에코백 이메일",
     "\"에코백\" \"대표자 이메일:\" \"통신판매업신고번호\"",
     "음식물처리기 공식몰 고객센터 이메일",
-    "site:smartstore.naver.com 음식물처리기 이메일"
+    "site:smartstore.naver.com 음식물처리기 이메일",
+    "캔들 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 캔들 이메일",
+    "site:wadiz.kr/web/campaign/detail 캔들 이메일",
+    "\"캔들\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "site:wadiz.kr/web/campaign/detail 음식물처리기 이메일",
+    "\"음식물처리기\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "돈까스 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 돈까스 이메일",
+    "site:wadiz.kr/web/campaign/detail 돈까스 이메일",
+    "\"돈까스\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "쿠키 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 쿠키 이메일",
+    "site:wadiz.kr/web/campaign/detail 쿠키 이메일",
+    "\"쿠키\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
-  "last_newswire_no": 1041310
+  "last_newswire_no": 1041130
 }
