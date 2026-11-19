@@ -1,8 +1,10 @@
 """
-GitHub Actions 클라우드 전용 고속 브랜드 수집기 (24시간 무인 실행 / PC 불필요)
-- 매 실행 시 최대 20분 동안 고속 멀티스레드 수집 후, 결과를 구글 시트(Apps Script 웹훅)로 전송하고 종료
-- 시트 전송이 실제로 성공한 건만 collected_history.txt에 기록하여 중복 방지 및 유실 방지
-- 비관련 기업/SaaS/소프트웨어/관공서/뉴스 노이즈 필터링 강화
+GitHub Actions 클라우드 전용 고속 브랜드 수집기 V2 (타율·수집 정밀도 고도화)
+- V2 개선 사항:
+  1. 이메일 우선순위 분류 버그 수정: 제휴/마케팅(partner, mkt, md, biz 등) 직통 이메일을 최우선(1순위)으로 선택
+  2. 오타 도메인(navre.com, gamil.com, daun.net 등) 자동 보정으로 반송률 최소화
+  3. D2C 자사몰(카페24/아임웹/식스샵/브랜드스토어) 및 공구 이력 타겟 검색 쿼리 확장
+  4. JSON-LD 구조화 데이터(contactPoint/email) 우선 파싱 추가
 """
 
 import base64
@@ -23,7 +25,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 SHEET_WEBHOOK_URL = os.environ.get("SHEET_WEBHOOK_URL", "").strip().strip('"').strip("'")
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "monad_auto_2026").strip().strip('"').strip("'")
 
-MAX_RUN_SECONDS = 1200      # 1회 실행 최대 20분 (상태 저장 후 깔끔히 종료)
+MAX_RUN_SECONDS = 1200      # 1회 실행 최대 20분
 BATCH_PUSH_SIZE = 10        # 10건 모일 때마다 즉시 구글 시트 전송
 MAX_WORKERS = 30
 HISTORY_FILE = "collected_history.txt"
@@ -60,9 +62,22 @@ PRODUCT_CATEGORIES = [
 EMAIL_REGEX = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 
 PRIORITY_PREFIXES = (
-    "mkt", "marketing", "partner", "partnership", "md", "biz", "business",
+    "partner", "partnership", "mkt", "marketing", "md", "biz", "business",
     "pr", "press", "sales", "brand", "collab", "live", "commerce", "ad", "event"
 )
+
+EMAIL_TYPO_FIX = {
+    "navre.com": "naver.com",
+    "naevr.com": "naver.com",
+    "naver.co": "naver.com",
+    "gamil.com": "gmail.com",
+    "gmial.com": "gmail.com",
+    "gmail.co": "gmail.com",
+    "daun.net": "daum.net",
+    "hanmil.net": "hanmail.net",
+    "hanmial.net": "hanmail.net",
+    "kako.com": "kakao.com",
+}
 
 EXCLUDE_PREFIXES = (
     "noreply", "no-reply", "privacy", "security", "webmaster", "terms",
@@ -104,7 +119,7 @@ SKIP_DOMAINS = (
     "daangn.com", "bunjang.co.kr", "joongna.com", "toss.im", "baemin.com",
     "yogiyo.co.kr", "aliexpress.com", "temu.com", "amazon.com",
     "airbnb.co.kr", "airbnb.com", "adobe.com", "hancom.com", "estsoft.co.kr",
-    "op.gg", "zigbang.com", "kyobobook.co.kr", "casenote.kr", "visitseoul.net",
+    "op.gg", "zigbang.com", "kyobobook.com", "casenote.kr", "visitseoul.net",
     "novelpia.com", "voyagerx.com", "kidsnote.com", "icbanq.com", "panocean.com"
 )
 
@@ -131,7 +146,6 @@ BAD_BRAND_EXACT = {
     "키프리스란", "개인정보위가", "신세계인터내셔날은", "일리있는 선택"
 }
 
-# 실제 쇼핑몰/소비재 브랜드 여부를 가르는 강한 커머스 시그널 (최소 2개 이상 필요)
 COMMERCE_SIGNAL_KEYWORDS = (
     "쇼핑몰", "공식몰", "자사몰", "스마트스토어", "브랜드스토어", "와디즈",
     "장바구니", "구매하기", "주문하기", "결제", "무료배송", "배송비", "택배",
@@ -146,6 +160,15 @@ def get_headers() -> dict:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
     }
+
+
+def normalize_email(email: str) -> str:
+    em = email.lower().strip().rstrip(".,;)>]\"'")
+    local, _, domain = em.partition("@")
+    if not domain:
+        return em
+    domain = EMAIL_TYPO_FIX.get(domain, domain)
+    return f"{local}@{domain}"
 
 
 def is_platform_store_url(url: str) -> bool:
@@ -172,7 +195,7 @@ def is_skip_domain(domain: str) -> bool:
 
 
 def is_valid_email(email: str) -> bool:
-    email = email.lower().strip().rstrip(".,;)>]\"'")
+    email = normalize_email(email)
     if len(email) < 6 or len(email) > 60:
         return False
     if any(ext in email for ext in (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".css", ".js", ".woff", ".ttf")):
@@ -190,12 +213,15 @@ def is_valid_email(email: str) -> bool:
 
 
 def classify_email_priority(email: str) -> int:
+    """제휴/마케팅 직통(1) > 대표/공식(2) > CS(3) > 기타(4) (V1 버그 수정)"""
     local = email.split("@")[0].lower()
     if any(k in local for k in PRIORITY_PREFIXES):
         return 1
-    if local in ("contact", "info", "hello", "official", "master", "cs", "help", "admin", "shop"):
+    if local in ("contact", "hello", "official", "info", "master"):
         return 2
-    return 1
+    if local in ("cs", "help", "support", "admin", "shop"):
+        return 3
+    return 4
 
 
 def clean_korean_brand_name(raw_title: str) -> str:
@@ -242,7 +268,6 @@ def clean_korean_brand_name(raw_title: str) -> str:
         return ""
     if any(k in part for k in EXCLUDE_ORG_KEYWORDS):
         return ""
-    # 조사로 끝나는 비정상 문장 조각 제외
     if re.search(r"(은|는|이|가|을|를|의|에서|으로)$", part) and len(part) <= 4:
         return ""
     return part
@@ -261,6 +286,17 @@ def extract_company_from_footer(text: str) -> str:
             if cand:
                 return cand
     return ""
+
+
+def extract_jsonld_emails(soup: BeautifulSoup) -> list[str]:
+    found = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string or ""
+        for m in EMAIL_REGEX.findall(raw):
+            norm = normalize_email(m)
+            if is_valid_email(norm):
+                found.append(norm)
+    return found
 
 
 def is_aptner_target_page(raw_title: str, page_text: str, min_signals: int = 2) -> bool:
@@ -331,10 +367,7 @@ def validate_webhook_url() -> bool:
     if not SHEET_WEBHOOK_URL:
         print("  [오류] SHEET_WEBHOOK_URL 시크릿이 비어 있습니다.")
         return False
-    if not SHEET_WEBHOOK_URL.startswith("https://"):
-        print("  [오류] SHEET_WEBHOOK_URL이 'https://'로 시작하지 않습니다. GitHub Secrets에 따옴표 없이 전체 웹 앱 URL(https://script.google.com/macros/s/.../exec)을 입력했는지 확인하세요.")
-        return False
-    if "script.google.com/macros/s/" not in SHEET_WEBHOOK_URL:
+    if not SHEET_WEBHOOK_URL.startswith("https://") or "script.google.com/macros/s/" not in SHEET_WEBHOOK_URL:
         print("  [오류] SHEET_WEBHOOK_URL 형식이 Apps Script 웹 앱 URL이 아닙니다.")
         return False
     return True
@@ -388,7 +421,7 @@ def extract_brand_and_email(url: str, fallback_brand: str = "") -> tuple[str, st
     if not brand:
         return "", ""
 
-    found = set()
+    found = set(extract_jsonld_emails(soup))
     urls_to_check = [url]
     if not is_platform_store_url(url):
         base_netloc = urlparse(url).netloc
@@ -405,13 +438,16 @@ def extract_brand_and_email(url: str, fallback_brand: str = "") -> tuple[str, st
         page_soup = soup if idx == 0 else fetch_soup(target_url, timeout=5)
         if not page_soup:
             continue
+        for em in extract_jsonld_emails(page_soup):
+            found.add(em)
         txt = page_text if idx == 0 else page_soup.get_text(" ", strip=True)
         for m in EMAIL_REGEX.findall(txt):
-            if is_valid_email(m):
-                found.add(m.lower())
+            norm = normalize_email(m)
+            if is_valid_email(norm):
+                found.add(norm)
         for a in page_soup.find_all("a", href=True):
             if a["href"].lower().startswith("mailto:"):
-                addr = a["href"][7:].split("?")[0].strip().lower()
+                addr = normalize_email(a["href"][7:].split("?")[0])
                 if is_valid_email(addr):
                     found.add(addr)
 
@@ -442,7 +478,7 @@ def process_press_url(press_url: str) -> tuple[str, str, str]:
                 site_url = href if is_platform_store_url(href) else f"{urlparse(href).scheme}://{urlparse(href).netloc}"
                 break
 
-    press_emails = [m.lower() for m in EMAIL_REGEX.findall(body_text) if is_valid_email(m)]
+    press_emails = [normalize_email(m) for m in EMAIL_REGEX.findall(body_text) if is_valid_email(m)]
     if press_emails and title_brand:
         best_em = sorted(set(press_emails), key=classify_email_priority)[0]
         ekey = get_entity_key(site_url) if site_url else best_em.split("@")[1]
@@ -512,7 +548,9 @@ def build_queries() -> list[str]:
     for c in cats:
         queries.append(f"{c} 공식몰 고객센터 이메일")
         queries.append(f"site:smartstore.naver.com {c} 이메일")
+        queries.append(f"site:brand.naver.com {c} 이메일")
         queries.append(f"site:wadiz.kr/web/campaign/detail {c} 이메일")
+        queries.append(f'{c} "공동구매" 공식몰 이메일')
         queries.append(f'"{c}" "대표자 이메일:" "통신판매업신고번호"')
     return queries
 
@@ -535,7 +573,7 @@ def main():
         with lock:
             if not brand or not email or not entity_key:
                 return
-            email = email.lower().strip()
+            email = normalize_email(email)
             if entity_key in seen_domains or brand in seen_brands or email in seen_emails:
                 return
             seen_domains.add(entity_key)
@@ -551,7 +589,6 @@ def main():
             if push_to_google_sheet(batch_to_send):
                 pushed_count += len(batch_to_send)
 
-    # 1. 뉴스와이어 최신 번호 역순 스캔 (회차당 180건 스캔)
     start_no = int(state.get("last_newswire_no", 1047250))
     if start_no < 1015000:
         start_no = 1047250
@@ -570,7 +607,6 @@ def main():
         state["last_newswire_no"] = batch_start - 60
         save_state(state)
 
-    # 2. 멀티 검색엔진 스윕 (남은 시간 동안 계속 실행)
     all_queries = build_queries()
     used_set = set(state.get("used_queries", []))
     remaining = [q for q in all_queries if q not in used_set]
@@ -586,7 +622,7 @@ def main():
         if hits:
             def handle_hit(item):
                 page_url, tit, snippet = item
-                snip_emails = [m.lower() for m in EMAIL_REGEX.findall(f"{tit} {snippet}") if is_valid_email(m)]
+                snip_emails = [normalize_email(m) for m in EMAIL_REGEX.findall(f"{tit} {snippet}") if is_valid_email(m)]
                 snip_brand = clean_korean_brand_name(tit)
                 entity_key = get_entity_key(page_url)
                 domain_only = urlparse(page_url).netloc.lower().replace("www.", "")
