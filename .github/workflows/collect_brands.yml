@@ -37,13 +37,53 @@ jobs:
           WEBHOOK_SECRET: monad_auto_2026
         run: python -u github_collect.py
 
-      - name: 수집 이력 저장
+      - name: 수집 이력 저장 (충돌 자동 해결 포함)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add collected_history.txt collector_state.json 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "chore: update collected brand history"
-            git pull --rebase --autostash origin main
+            if ! git pull --rebase --autostash origin main; then
+              git rebase --abort || true
+              git fetch origin main
+              python3 - <<'EOF'
+          import json, subprocess
+
+          def git_show(ref_path):
+              try:
+                  return subprocess.check_output(["git", "show", ref_path], text=True)
+              except subprocess.CalledProcessError:
+                  return None
+
+          local_s = git_show("HEAD:collector_state.json")
+          remote_s = git_show("origin/main:collector_state.json")
+          if local_s or remote_s:
+              l = json.loads(local_s) if local_s else {}
+              r = json.loads(remote_s) if remote_s else {}
+              merged = {
+                  **r,
+                  **l,
+                  "used_queries": list(dict.fromkeys(r.get("used_queries", []) + l.get("used_queries", []))),
+                  "last_newswire_no": max(r.get("last_newswire_no", 0), l.get("last_newswire_no", 0)),
+              }
+              with open("/tmp/collector_state.json", "w", encoding="utf-8") as f:
+                  json.dump(merged, f, ensure_ascii=False, indent=2)
+
+          local_h = git_show("HEAD:collected_history.txt")
+          remote_h = git_show("origin/main:collected_history.txt")
+          if local_h is not None or remote_h is not None:
+              lines = list(dict.fromkeys((remote_h or "").splitlines() + (local_h or "").splitlines()))
+              with open("/tmp/collected_history.txt", "w", encoding="utf-8") as f:
+                  f.write("\n".join(lines) + ("\n" if lines else ""))
+          EOF
+              git reset --hard origin/main
+              [ -f /tmp/collector_state.json ] && mv /tmp/collector_state.json collector_state.json
+              [ -f /tmp/collected_history.txt ] && mv /tmp/collected_history.txt collected_history.txt
+              git add collected_history.txt collector_state.json 2>/dev/null || true
+              if ! git diff --staged --quiet; then
+                git commit -m "chore: update collected brand history"
+              fi
+            fi
             git push origin main
           fi
