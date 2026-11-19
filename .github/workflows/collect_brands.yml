@@ -1,17 +1,27 @@
 name: MonadLive 24h Brand Collector
 
 on:
+  schedule:
+    - cron: '*/30 * * * *'   # 30분마다 클라우드에서 자동 실행
   workflow_dispatch:         # 깃허브 웹에서 수동 즉시 실행 버튼 제공
 
 permissions:
   contents: write
 
+# 중복 실행으로 인한 git push 충돌 및 시트 중복 적재 방지
+concurrency:
+  group: monad-collector
+  cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: 저장소 코드 가져오기
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Python 환경 설정
         uses: actions/setup-python@v5
@@ -27,10 +37,13 @@ jobs:
           WEBHOOK_SECRET: monad_auto_2026
         run: python -u github_collect.py
 
-      - name: 수집 이력 저장 (중복 방지)
+      - name: 수집 이력 저장 (충돌 자동 해결 포함)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add collected_history.txt collector_state.json || true
-          git diff --staged --quiet || git commit -m "chore: update collected brand history"
-          git push
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update collected brand history"
+            git pull --rebase --autostash origin main || true
+            git push origin main
+          fi
