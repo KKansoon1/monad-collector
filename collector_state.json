@@ -1073,7 +1073,13 @@
     "site:brand.naver.com 목마사지기 이메일",
     "site:wadiz.kr/web/campaign/detail 목마사지기 이메일",
     "목마사지기 \"공동구매\" 공식몰 이메일",
-    "\"목마사지기\" \"대표자 이메일:\" \"통신판매업신고번호\""
+    "\"목마사지기\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "토너패드 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 토너패드 이메일",
+    "site:brand.naver.com 토너패드 이메일",
+    "site:wadiz.kr/web/campaign/detail 토너패드 이메일",
+    "토너패드 \"공동구매\" 공식몰 이메일",
+    "\"토너패드\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
   "last_newswire_no": 1015570
 }
