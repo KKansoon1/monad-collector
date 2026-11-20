@@ -1067,7 +1067,19 @@
     "클렌징폼 공식몰 고객센터 이메일",
     "site:smartstore.naver.com 클렌징폼 이메일",
     "site:brand.naver.com 클렌징폼 이메일",
-    "site:wadiz.kr/web/campaign/detail 클렌징폼 이메일"
+    "site:wadiz.kr/web/campaign/detail 클렌징폼 이메일",
+    "site:brand.naver.com 떡볶이 이메일",
+    "site:wadiz.kr/web/campaign/detail 떡볶이 이메일",
+    "떡볶이 \"공동구매\" 공식몰 이메일",
+    "\"떡볶이\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "선풍기 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 선풍기 이메일",
+    "site:brand.naver.com 선풍기 이메일",
+    "site:wadiz.kr/web/campaign/detail 선풍기 이메일",
+    "선풍기 \"공동구매\" 공식몰 이메일",
+    "\"선풍기\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "클렌징폼 \"공동구매\" 공식몰 이메일",
+    "\"클렌징폼\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
   "last_newswire_no": 1016470
 }
