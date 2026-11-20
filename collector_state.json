@@ -1073,7 +1073,13 @@
     "site:brand.naver.com 막걸리 이메일",
     "site:wadiz.kr/web/campaign/detail 막걸리 이메일",
     "막걸리 \"공동구매\" 공식몰 이메일",
-    "\"막걸리\" \"대표자 이메일:\" \"통신판매업신고번호\""
+    "\"막걸리\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "스팀다리미 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 스팀다리미 이메일",
+    "site:brand.naver.com 스팀다리미 이메일",
+    "site:wadiz.kr/web/campaign/detail 스팀다리미 이메일",
+    "스팀다리미 \"공동구매\" 공식몰 이메일",
+    "\"스팀다리미\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
   "last_newswire_no": 1019710
 }
