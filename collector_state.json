@@ -1006,7 +1006,25 @@
     "site:smartstore.naver.com 선크림 이메일",
     "site:brand.naver.com 선크림 이메일",
     "site:wadiz.kr/web/campaign/detail 선크림 이메일",
-    "선크림 \"공동구매\" 공식몰 이메일"
+    "선크림 \"공동구매\" 공식몰 이메일",
+    "단백질쉐이크 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 단백질쉐이크 이메일",
+    "site:brand.naver.com 단백질쉐이크 이메일",
+    "site:wadiz.kr/web/campaign/detail 단백질쉐이크 이메일",
+    "단백질쉐이크 \"공동구매\" 공식몰 이메일",
+    "\"단백질쉐이크\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "진공청소기 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 진공청소기 이메일",
+    "site:brand.naver.com 진공청소기 이메일",
+    "site:wadiz.kr/web/campaign/detail 진공청소기 이메일",
+    "진공청소기 \"공동구매\" 공식몰 이메일",
+    "\"진공청소기\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "간편식 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 간편식 이메일",
+    "site:brand.naver.com 간편식 이메일",
+    "site:wadiz.kr/web/campaign/detail 간편식 이메일",
+    "간편식 \"공동구매\" 공식몰 이메일",
+    "\"간편식\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
   "last_newswire_no": 1046170
 }
