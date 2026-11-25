@@ -1067,7 +1067,19 @@
     "site:brand.naver.com 캔들 이메일",
     "site:wadiz.kr/web/campaign/detail 캔들 이메일",
     "캔들 \"공동구매\" 공식몰 이메일",
-    "\"캔들\" \"대표자 이메일:\" \"통신판매업신고번호\""
+    "\"캔들\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "서큘레이터 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 서큘레이터 이메일",
+    "site:brand.naver.com 서큘레이터 이메일",
+    "site:wadiz.kr/web/campaign/detail 서큘레이터 이메일",
+    "서큘레이터 \"공동구매\" 공식몰 이메일",
+    "\"서큘레이터\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "쥐포 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 쥐포 이메일",
+    "site:brand.naver.com 쥐포 이메일",
+    "site:wadiz.kr/web/campaign/detail 쥐포 이메일",
+    "쥐포 \"공동구매\" 공식몰 이메일",
+    "\"쥐포\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
   "last_newswire_no": 1026370
 }
