@@ -1073,7 +1073,13 @@
     "site:brand.naver.com 식기 이메일",
     "site:wadiz.kr/web/campaign/detail 식기 이메일",
     "식기 \"공동구매\" 공식몰 이메일",
-    "\"식기\" \"대표자 이메일:\" \"통신판매업신고번호\""
+    "\"식기\" \"대표자 이메일:\" \"통신판매업신고번호\"",
+    "마사지기 공식몰 고객센터 이메일",
+    "site:smartstore.naver.com 마사지기 이메일",
+    "site:brand.naver.com 마사지기 이메일",
+    "site:wadiz.kr/web/campaign/detail 마사지기 이메일",
+    "마사지기 \"공동구매\" 공식몰 이메일",
+    "\"마사지기\" \"대표자 이메일:\" \"통신판매업신고번호\""
   ],
   "last_newswire_no": 1016110
 }
